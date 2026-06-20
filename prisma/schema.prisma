@@ -1,0 +1,168 @@
+// This is your Prisma schema file.
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserTier {
+  FREE
+  PREMIUM
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Users
+// ─────────────────────────────────────────────────────────────────────────────
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String   @map("password_hash")
+  tier          UserTier @default(FREE)
+  emailVerified Boolean  @default(false) @map("email_verified")
+  preferences   Json?    // { preferredSeasons, budgetRange, travelStyle, adventureLevel }
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  sessions        ChatSession[]
+  itineraries     SavedItinerary[]
+  refreshTokens   RefreshToken[]
+  passwordResets  PasswordReset[]
+  apiLogs         ApiLog[]
+  aiUsage         AiUsageLog[]
+
+  @@index([email])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auth
+// ─────────────────────────────────────────────────────────────────────────────
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+model PasswordReset {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@map("password_resets")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chat
+// ─────────────────────────────────────────────────────────────────────────────
+model ChatSession {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  title          String   @default("New Chat")
+  contextSummary Json?    @map("context_summary") // Cached Gemini extraction result
+  isDeleted      Boolean  @default(false) @map("is_deleted")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    ChatMessage[]
+  itineraries SavedItinerary[]
+
+  @@index([userId])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id            String      @id @default(uuid())
+  sessionId     String      @map("session_id")
+  role          MessageRole
+  content       String
+  extractedData Json?       @map("extracted_data") // Structured mood extraction result
+  timestamp     DateTime    @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("chat_messages")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Itineraries
+// ─────────────────────────────────────────────────────────────────────────────
+model SavedItinerary {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  sessionId     String?  @map("session_id")
+  title         String
+  destination   String
+  duration      Int      // days
+  budget        Float
+  itineraryJson Json     @map("itinerary_json")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session ChatSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("saved_itineraries")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Logging & Monitoring
+// ─────────────────────────────────────────────────────────────────────────────
+model ApiLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  endpoint   String
+  method     String
+  statusCode Int      @map("status_code")
+  durationMs Int?     @map("duration_ms")
+  timestamp  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([timestamp])
+  @@map("api_logs")
+}
+
+model AiUsageLog {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  date      String   // YYYY-MM-DD for daily rate limiting
+  callCount Int      @default(0) @map("call_count")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@map("ai_usage_logs")
+}
