@@ -25,21 +25,33 @@ app.use(helmet({
 }));
 
 // ─── CORS ─────────────────────────────────────────────────────────────────
+// Get FRONTEND_URL from environment and remove any trailing slash for accurate matching
+const frontendUrl = process.env.FRONTEND_URL 
+  ? process.env.FRONTEND_URL.replace(/\/$/, '') 
+  : 'http://localhost:5173';
+
 const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:5173',
+  frontendUrl,
   'http://localhost:5173',
   'http://localhost:3000',
 ];
+
+// Console.log showing which origins are enabled (as requested)
+console.log(`[CORS] Allowed Origins: ${allowedOrigins.join(', ')}`);
 
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
+    
+    // Check if the request origin matches our allowed list
     if (allowedOrigins.includes(origin)) return callback(null, true);
+    
+    // If not allowed, reject
     callback(new Error(`CORS policy violation: origin ${origin} not allowed`));
   },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true, // Required for cookies/auth
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'], // Included PATCH as requested
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
