@@ -16,6 +16,7 @@ const chatRoutes = require('./routes/chat');
 const aiRoutes = require('./routes/ai');
 const itineraryRoutes = require('./routes/itineraries');
 const stripeRoutes = require('./routes/stripe');
+const feedbackRoutes = require('./routes/feedback');
 
 const app = express();
 
@@ -89,6 +90,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/itineraries', itineraryRoutes);
 app.use('/api/stripe', stripeRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 // ─── 404 Handler ──────────────────────────────────────────────────────────
 app.use('*', (req, res) => {

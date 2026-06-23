@@ -1,4 +1,5 @@
 const logger = require('../utils/logger');
+const { logError } = require('../services/errorLogService');
 
 /**
  * Centralized error handling middleware.
@@ -21,6 +22,23 @@ function errorHandler(err, req, res, next) {
       url: req.url,
       userId: req.user?.id,
     },
+  });
+
+  // Determine the status code for this error up-front so we can log it
+  const statusCode =
+    err.name === 'ZodError'       ? 400
+    : err.code === 'P2002'        ? 409
+    : err.code === 'P2025'        ? 404
+    : err.statusCode              ? err.statusCode
+    : 500;
+
+  // Persist to Supabase error_logs (fire-and-forget — never throws)
+  logError({
+    userId: req.user?.id,
+    endpoint: `${req.method} ${req.originalUrl}`,
+    errorMessage: err.message,
+    stackTrace: process.env.NODE_ENV !== 'production' ? err.stack : undefined,
+    statusCode,
   });
 
   // Zod validation errors
