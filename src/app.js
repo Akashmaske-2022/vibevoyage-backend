@@ -20,6 +20,9 @@ const feedbackRoutes = require('./routes/feedback');
 
 const app = express();
 
+// Trust proxy (required for express-rate-limit to read client IP behind Render/Cloudflare)
+app.set('trust proxy', 1);
+
 // ─── Security ─────────────────────────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: false, // Handled by frontend
